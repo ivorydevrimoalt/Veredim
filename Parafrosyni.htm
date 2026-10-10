@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>חטיפה אנונימית</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&family=Nosifer&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #000000;
+            color: #ffffff;
+            font-family: 'Heebo', sans-serif;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        /* Violent Screen Shake for Combo Jumpscares */
+        @keyframes violent-shake {
+            0% { transform: translate(0, 0) scale(1) rotate(0deg); filter: contrast(100%); }
+            10% { transform: translate(-45px, 35px) scale(1.3) rotate(-8deg); filter: invert(100%) contrast(300%); }
+            20% { transform: translate(40px, -45px) scale(1.4) rotate(9deg); filter: contrast(400%) hue-rotate(180deg); }
+            30% { transform: translate(-50px, -20px) scale(1.5) rotate(-6deg); filter: invert(90%); }
+            40% { transform: translate(35px, 45px) scale(1.25) rotate(7deg); filter: contrast(300%); }
+            50% { transform: translate(-40px, 20px) scale(1.6) rotate(-10deg); filter: invert(100%); }
+            60% { transform: translate(50px, -30px) scale(1.35) rotate(8deg); }
+            70% { transform: translate(-30px, -40px) scale(1.5) rotate(-5deg); filter: contrast(400%); }
+            80% { transform: translate(45px, 30px) scale(1.3) rotate(7deg); }
+            90% { transform: translate(-20px, -45px) scale(1.2) rotate(-8deg); }
+            100% { transform: translate(0, 0) scale(1) rotate(0deg); filter: contrast(100%); }
+        }
+
+        .shake-active {
+            animation: violent-shake 0.04s infinite;
+        }
+
+        /* Fast Extreme Strobe */
+        @keyframes strobe-flash {
+            0% { opacity: 0; background-color: #000000; }
+            20% { opacity: 1; background-color: #ff0000; }
+            40% { opacity: 0.1; background-color: #ffffff; }
+            60% { opacity: 0.9; background-color: #550000; }
+            80% { opacity: 0.2; background-color: #000000; }
+            100% { opacity: 1; background-color: #ffffff; }
+        }
+
+        .strobe-fast {
+            animation: strobe-flash 0.03s infinite;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col items-center justify-center relative bg-black text-white p-6">
+
+    <!-- Minimal Pitch Dark Container -->
+    <div id="main-container" class="flex flex-col items-center justify-center text-center max-w-2xl z-10 space-y-6">
+        
+        <!-- Story text content exactly as requested -->
+        <div class="space-y-4">
+            <p class="text-white text-xl md:text-2xl font-bold tracking-wide leading-relaxed">
+                אני רק אחראי על זה
+            </p>
+            
+            <p class="text-gray-200 text-lg md:text-xl font-bold tracking-wide leading-relaxed">
+                חטיפה אנונימית של המשחק הזה
+            </p>
+
+            <p class="text-gray-300 text-base md:text-lg font-medium leading-relaxed">
+                אתה חושב שאני סתם ילד קטן ומזויין
+            </p>
+
+            <p class="text-gray-300 text-base md:text-lg font-medium leading-relaxed">
+                אבל באמת, הערכת אותי פחות.
+            </p>
+
+            <p class="text-gray-400 text-sm md:text-base font-light leading-relaxed pt-1">
+                צא החוצה ותריח את הפרחים
+            </p>
+        </div>
+
+        <!-- Subtle Grayish Button -->
+        <button id="trigger-btn" class="px-8 py-3 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-900 text-gray-200 border border-zinc-600 rounded-md font-medium text-lg tracking-wider transition-all duration-200 shadow-md mt-2">
+            צא החוצה
+        </button>
+    </div>
+
+    <!-- Strobe Flash Layer -->
+    <div id="strobe-overlay" class="fixed inset-0 hidden z-40 strobe-fast pointer-events-none"></div>
+
+    <!-- Screamer Fullscreen Canvas -->
+    <canvas id="screamer-canvas" class="fixed inset-0 z-50 hidden w-full h-full object-cover pointer-events-none"></canvas>
+
+    <!-- SVG Filter for Dynamic SVG Displacement Mapping -->
+    <svg class="hidden">
+        <defs>
+            <filter id="svg-distortion">
+                <feTurbulence type="fractalNoise" baseFrequency="0.05 0.95" numOctaves="3" result="noise" id="fe-turb" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="80" xChannelSelector="R" yChannelSelector="G" id="fe-disp" />
+            </filter>
+        </defs>
+    </svg>
+
+    <!-- Post-Jumpscare End Screen with ONLY bonziworld.kr -->
+    <div id="end-screen" class="fixed inset-0 bg-black z-50 hidden flex flex-col items-center justify-center p-6 text-center space-y-6">
+        <div class="pt-4">
+            <a href="https://bonziworld.kr" target="_blank" rel="noopener noreferrer" class="text-3xl md:text-5xl font-mono text-cyan-400 hover:text-cyan-300 underline font-bold tracking-wider break-all transition-colors">
+                https://bonziworld.kr
+            </a>
+        </div>
+    </div>
+
+    <script>
+        let audioCtx = null;
+        let infiniteBitcrushSource = null;
+        const triggerBtn = document.getElementById('trigger-btn');
+        const mainContainer = document.getElementById('main-container');
+        const screamerCanvas = document.getElementById('screamer-canvas');
+        const strobeOverlay = document.getElementById('strobe-overlay');
+        const endScreen = document.getElementById('end-screen');
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function makeDistortionCurve(amount) {
+            const k = typeof amount === 'number' ? amount : 500;
+            const n_samples = 44100;
+            const curve = new Float32Array(n_samples);
+            const deg = Math.PI / 180;
+            for (let i = 0; i < n_samples; ++i) {
+                const x = (i * 2) / n_samples - 1;
+                curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+            }
+            return curve;
+        }
+
+        // Infinite Bitcrushed audio loop triggered after the 100 jumpscares
+        function playInfiniteBitcrushedAudio() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            
+            const duration = 2.0;
+            const bufferSize = audioCtx.sampleRate * duration;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+
+            let lastValue = 0;
+            const step = 128; 
+            const bitDepth = 5;
+            const levels = Math.pow(2, bitDepth);
+
+            for (let i = 0; i < bufferSize; i++) {
+                if (i % step === 0) {
+                    let raw = Math.random() * 2 - 1;
+                    lastValue = Math.round(raw * levels) / levels;
+                }
+                data[i] = lastValue;
+            }
+
+            infiniteBitcrushSource = audioCtx.createBufferSource();
+            infiniteBitcrushSource.buffer = buffer;
+            infiniteBitcrushSource.loop = true;
+
+            const distortion = audioCtx.createWaveShaper();
+            distortion.curve = makeDistortionCurve(500);
+
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(255.0, now);
+
+            infiniteBitcrushSource.connect(distortion);
+            distortion.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            infiniteBitcrushSource.start(now);
+        }
+
+        // Extremely loud wall-of-sound burst utilizing random frequencies from 1 Hz to 1000 Hz without fade-in
+        function playMassiveLowMidScreech() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const duration = 0.1;
+
+            const distortion = audioCtx.createWaveShaper();
+            distortion.curve = makeDistortionCurve(2000); // Extreme overdrive curve
+
+            const masterGain = audioCtx.createGain();
+            masterGain.gain.setValueAtTime(2555.0, now); // Overdriven master gain for maximum loudness
+
+            distortion.connect(audioCtx.destination);
+            masterGain.connect(distortion);
+
+            // Generate dense cluster of 20 randomized oscillators spanning 1 Hz to 1000 Hz
+            const oscCount = 50;
+            for (let i = 0; i < oscCount; i++) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                // Random frequency across 1 Hz to 1000 Hz
+                const freq = 1 + Math.random() * 999;
+                osc.type = i % 3 === 0 ? 'sawtooth' : (i % 3 === 1 ? 'square' : 'triangle');
+                osc.frequency.setValueAtTime(freq, now);
+                
+                gain.gain.setValueAtTime(1.0, now); // Maximum per-oscillator volume
+
+                osc.connect(gain);
+                gain.connect(masterGain);
+
+                osc.start(now);
+                osc.stop(now + duration);
+            }
+        }
+
+        // Procedurally generates completely random terrifying faces & glitch graphics for every single jumpscare frame
+        function renderMonsterStage(stage) {
+            const ctx = screamerCanvas.getContext('2d');
+            screamerCanvas.width = window.innerWidth;
+            screamerCanvas.height = window.innerHeight;
+
+            const w = screamerCanvas.width;
+            const h = screamerCanvas.height;
+            const cx = w / 2 + (Math.random() * 60 - 30);
+            const cy = h / 2 + (Math.random() * 60 - 30);
+
+            // Random aggressive background tone
+            const bgColors = ['#000000', '#1a0000', '#0a0a0a', '#220000', '#050014'];
+            ctx.fillStyle = bgColors[Math.floor(Math.random() * bgColors.length)];
+            ctx.fillRect(0, 0, w, h);
+
+            // Random face dimensions
+            const faceRadiusX = w * (0.25 + Math.random() * 0.25);
+            const faceRadiusY = h * (0.3 + Math.random() * 0.3);
+
+            // Draw Head Structure
+            const skinColors = ['#ffffff', '#dc2626', '#f8fafc', '#18181b', '#7f1d1d', '#450a0a', '#d1d5db'];
+            ctx.fillStyle = skinColors[Math.floor(Math.random() * skinColors.length)];
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, faceRadiusX, faceRadiusY, (Math.random() - 0.5) * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Random Eyes (Multiple or weirdly positioned)
+            const eyeCount = Math.floor(2 + Math.random() * 50);
+            for (let e = 0; e < eyeCount; e++) {
+                const ex = cx + (Math.random() - 0.5) * faceRadiusX * 1.2;
+                const ey = cy - faceRadiusY * 0.2 + (Math.random() - 0.5) * faceRadiusY * 0.5;
+                const eyeR = 10 + Math.random() * 50;
+
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(ex, ey, eyeR, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (Math.random() > 0.2) {
+                    ctx.fillStyle = Math.random() > 0.5 ? '#ff0000' : '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(ex + (Math.random() - 0.5) * 10, ey + (Math.random() - 0.5) * 10, eyeR * 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // Gaping Glitch Mouth
+            const mouthY = cy + faceRadiusY * 0.3;
+            const mouthW = faceRadiusX * (0.4 + Math.random() * 0.8);
+            const mouthH = faceRadiusY * (0.3 + Math.random() * 0.8);
+
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.ellipse(cx, mouthY, mouthW, mouthH, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Sharp Random Teeth
+            const toothCount = Math.floor(10 + Math.random() * 300);
+            ctx.fillStyle = '#ffffff';
+            for (let t = 0; t < toothCount; t++) {
+                const tx = cx - mouthW + (t / toothCount) * (mouthW * 2);
+                const ty = mouthY + (Math.random() - 0.5) * mouthH * 0.5;
+                const tSize = 5 + Math.random() * 25;
+
+                ctx.beginPath();
+                ctx.moveTo(tx, ty);
+                ctx.lineTo(tx + tSize / 2, ty + (t % 2 === 0 ? tSize : -tSize));
+                ctx.lineTo(tx + tSize, ty);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Random Glitch Noise Artifacts
+            const glitchBarCount = Math.floor(5 + Math.random() * 200);
+            for (let g = 0; g < glitchBarCount; g++) {
+                ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)';
+                const gy = Math.random() * h;
+                const gh = 2 + Math.random() * 15;
+                ctx.fillRect(0, gy, w, gh);
+            }
+        }
+
+        // 240 FPS SVG Displacement Loop (12 frames looping indefinitely)
+        function startLooping12FrameSVGDistortion() {
+            playInfiniteBitcrushedAudio();
+
+            let frameCount = 0;
+            const totalFrames = 12;
+            const targetFPSDelay = 1000 / 240;
+
+            const feTurb = document.getElementById('fe-turb');
+            const feDisp = document.getElementById('fe-disp');
+
+            document.documentElement.style.filter = 'url(#svg-distortion)';
+
+            function render240FPSLoop() {
+                frameCount = (frameCount + 1) % totalFrames;
+
+                const baseFreqX = 0.01 + (frameCount / 12) * 0.015;
+                const baseFreqY = 0.1 + Math.random() * 0.08;
+                const scaleVal = 4 + (frameCount % 12) * 2 + Math.random() * 5;
+
+                feTurb.setAttribute('baseFrequency', `${baseFreqX} ${baseFreqY}`);
+                feDisp.setAttribute('scale', `${scaleVal}`);
+
+                setTimeout(render240FPSLoop, targetFPSDelay);
+            }
+
+            render240FPSLoop();
+        }
+
+        function triggerAll100Jumpscares() {
+            initAudio();
+            triggerBtn.disabled = true;
+
+            const TOTAL_JUMPSCARES = 1000;
+            const DURATION_PER_JUMPSCARE = 10; // Exactly 0.1s per jumpscare
+
+            let currentBurst = 1;
+
+            document.body.classList.add('shake-active');
+            screamerCanvas.classList.remove('hidden');
+            strobeOverlay.classList.remove('hidden');
+
+            renderMonsterStage(currentBurst);
+            playMassiveLowMidScreech();
+
+            const sequenceTimer = setInterval(() => {
+                currentBurst++;
+                if (currentBurst <= TOTAL_JUMPSCARES) {
+                    renderMonsterStage(currentBurst);
+                    playMassiveLowMidScreech();
+                } else {
+                    clearInterval(sequenceTimer);
+                    document.body.classList.remove('shake-active');
+                    screamerCanvas.classList.add('hidden');
+                    strobeOverlay.classList.add('hidden');
+                    mainContainer.classList.add('hidden');
+
+                    endScreen.classList.remove('hidden');
+                    startLooping12FrameSVGDistortion();
+                }
+            }, DURATION_PER_JUMPSCARE);
+        }
+
+        triggerBtn.addEventListener('click', triggerAll100Jumpscares);
+
+        window.addEventListener('resize', () => {
+            if (!screamerCanvas.classList.contains('hidden')) {
+                screamerCanvas.width = window.innerWidth;
+                screamerCanvas.height = window.innerHeight;
+            }
+        });
+    </script>
+</body>
+</html>
