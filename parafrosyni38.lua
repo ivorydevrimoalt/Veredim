@@ -1,4 +1,4 @@
-frosy = 1
+frosy = 0
 local function checkParameter(para)
 	if para == 0 then
 		-- Does nothing when para is 0
